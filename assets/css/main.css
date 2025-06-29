@@ -1,2 +1,10 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+@theme static {
+    --color-retro-slate: #495867;
+    --color-retro-blue:  #577399;
+    --color-retro-sky:   #BDD5EA;
+    --color-retro-gray:  #F7F7FF;
+    --color-retro-red:   #FE5F55;
+}
