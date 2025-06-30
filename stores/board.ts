@@ -59,84 +59,92 @@ export const useBoardStore = defineStore('board', {
 		editText: '',
 	}),
 	getters: {
-		totalNotes: (state) => state.columns.reduce((sum, col) => sum + col.notes.length, 0),
-		totalVotes: (state) => state.columns.reduce((sum, col) => sum + col.notes.reduce((n, note) => n + note.votes, 0), 0),
+		totalNotes: (state) => state.columns.reduce((sum, col: Column) => sum + col.notes.length, 0),
+		totalVotes: (state) => state.columns.reduce((sum, col: Column) => sum + col.notes.reduce((n, note) => n + note.votes, 0), 0),
 	},
 	actions: {
 		/* shared state */
 		init() {
-			if (yColumns.length > 0) {
-				// init shared state
-				this.columns = this.readToLocal()
-			} else {
+			if (yColumns.length === 0) {
 				// seed shared state
-				this.readToY();
+				this.columns.forEach(col => {
+					yColumns.push([JSON.stringify(col)])
+				})
 			}
+			this.columns = this.readToLocal()
 
 			yColumns.observe(() => {
 				this.columns = this.readToLocal()
 			})
 		},
-		readToY() {
-			yColumns.delete(0, yColumns.length)
-			this.columns.forEach(col => {
-				yColumns.push([JSON.stringify(col)])
-			})
-		},
 		readToLocal() {
 			return yColumns.toArray().map(col => JSON.parse(<string>col))
+		},
+		updateSharedCol(col: Column) {
+			const index = this.getColIndexFromY(col.id)
+			if (index === -1) return
+
+			yColumns.delete(index, 1)
+			yColumns.insert(index, [JSON.stringify(col)])
+		},
+		getColIndexFromY(columnId: string) {
+			const yArray = yColumns.toArray()
+			return yArray.findIndex(c => {
+				const parsedCol: Column = JSON.parse(<string>c)
+				return parsedCol.id === columnId
+			})
 		},
 
 		/* actions affecting a shared state */
 		addNote(columnId: string, text: string) {
 			if (!text.trim()) return
-			const newNote = {
+			const newNote: Note = {
 				id: Date.now().toString(),
 				text,
 				author: this.userName,
 				votes: 0,
 				color: COLORS[columnId.split('-')[1]] || COLORS.default,
 			}
-			this.columns = this.columns.map(col =>
-				col.id === columnId
-					? { ...col, notes: [...col.notes, newNote] }
-					: col
-			)
-			this.readToY()
+
+			const index = this.getColIndexFromY(columnId)
+			if (index === -1) return
+
+			const yCol = JSON.parse(<string>yColumns.get(index))
+			yCol.notes.push(newNote)
+			this.updateSharedCol(yCol)
 		},
 		deleteNote(columnId: string, noteId: string) {
-			this.columns = this.columns.map(col =>
-				col.id === columnId
-					? { ...col, notes: col.notes.filter(note => note.id !== noteId) }
-					: col
-			)
-			this.readToY()
+			const index = this.getColIndexFromY(columnId)
+			if (index === -1) return
+
+			const yCol = JSON.parse(<string>yColumns.get(index))
+			yCol.notes = yCol.notes.filter((note: Note) => note.id !== noteId)
+			this.updateSharedCol(yCol)
 		},
 		voteNote(columnId: string, noteId: string) {
-			this.columns = this.columns.map(col =>
-				col.id === columnId
-					? {
-						...col,
-						notes: col.notes.map(note =>
-							note.id === noteId ? { ...note, votes: note.votes + 1 } : note
-						),
-					}
-					: col
+			const index = this.getColIndexFromY(columnId)
+			if (index === -1) return
+
+			const yCol = JSON.parse(<string>yColumns.get(index))
+			yCol.notes = yCol.notes.map((note: Note) =>
+				note.id === noteId
+					? { ...note, votes: note.votes + 1 }
+					: note
 			)
-			this.readToY()
+			this.updateSharedCol(yCol)
 		},
 		saveEdit(columnId: string, noteId: string, newText: string) {
-			this.columns = this.columns.map(col =>
-				col.id === columnId
-					? {
-						...col,
-						notes: col.notes.map(note =>
-							note.id === noteId ? { ...note, text: newText } : note
-						),
-					}
-					: col
+			if (!newText.trim()) return
+			const index = this.getColIndexFromY(columnId)
+			if (index === -1) return
+
+			const yCol = JSON.parse(<string>yColumns.get(index))
+			yCol.notes = yCol.notes.map((note: Note) =>
+				note.id === noteId
+					? { ...note, text: newText }
+					: note
 			)
-			this.readToY()
+			this.updateSharedCol(yCol)
 			this.cancelEdit()
 		},
 
@@ -149,12 +157,10 @@ export const useBoardStore = defineStore('board', {
 		startEdit(note: Note) {
 			this.editingNote = note.id
 			this.editText = note.text
-			this.readToY()
 		},
 		cancelEdit() {
 			this.editingNote = null
 			this.editText = ''
-			this.readToY()
 		},
 	},
 })

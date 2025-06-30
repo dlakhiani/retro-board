@@ -23,7 +23,7 @@
             <div v-if="activeColumn === column.id" class="border-2 border-dashed rounded p-3">
                 <UTextarea v-model="newNoteTextLocal" placeholder="What's on your mind?" autofocus />
                 <div class="flex gap-2 mt-2">
-                    <UButton @click="$emit('add-note', column.id, newNoteTextLocal)" :disabled="!newNoteTextLocal.trim()">Add Note</UButton>
+                    <UButton @click="emitAddNote" :disabled="!newNoteTextLocal.trim()">Add Note</UButton>
                     <UButton color="gray" @click="$emit('cancel-add')">Cancel</UButton>
                 </div>
             </div>
@@ -74,5 +74,11 @@ export default {
             return [...this.column.notes].sort((a, b) => b.votes - a.votes)
         },
     },
+    methods: {
+        emitAddNote() {
+            this.$emit('add-note', this.column.id, this.newNoteTextLocal)
+            this.newNoteTextLocal = ''
+        }
+    }
 }
 </script>
